@@ -27,27 +27,84 @@ __all__ = [
 ]    
 
 def parse_tag_result(content, tag):
+    if not isinstance(content, str):
+        print(f"Warning: parse_tag_result received content of type {type(content)} for tag '{tag}'. Expected str. Attempting conversion.")
+        if content is None:
+            content = ""
+            print(f"Info: Converted None content to empty string for tag '{tag}'.")
+        elif isinstance(content, list):
+            try:
+                # Attempt to join list elements. This assumes elements are strings or safely convertible.
+                # If the list might contain complex objects not intended for simple joining,
+                # this might need more sophisticated handling or simply default to empty string.
+                content = "".join(str(item) for item in content)
+                print(f"Info: Converted list content to string for tag '{tag}'. Preview (first 100 chars): '{content[:100]}'")
+            except Exception as e:
+                print(f"Error: Failed to convert list content to string for tag '{tag}': {e}. Using empty string.")
+                content = ""
+        else:
+            try:
+                original_type_name = type(content).__name__
+                content = str(content)
+                print(f"Info: Converted non-string, non-list content of type {original_type_name} to string for tag '{tag}'. Preview (first 100 chars): '{content[:100]}'")
+            except Exception as e:
+                original_type_name = type(content).__name__ # Re-evaluate in case str(content) failed early
+                print(f"Error: Failed to convert content of type {original_type_name} to string for tag '{tag}': {e}. Using empty string.")
+                content = ""
+
+    # Original logic starts here
+    # It's important to consider if content.split("\n") is still the desired behavior
+    # after a potential "".join(list_items). If the original list items had newlines
+    # that were meaningful for parsing, joining them without newlines first might alter logic.
+    # However, the original function already seems to be line-oriented for its primary parsing method.
     start = False 
     results = []
-    for line in content.split("\n"):
+    # Ensure content is not None after potential failed conversions before splitting
+    current_content_lines = content.split("\n") if content is not None else []
+
+    for line in current_content_lines:
         line = line.strip()
         if line == "<{}>".format(tag):
             start = True
-        if line == "</{}>".format(tag):
+        elif line == "</{}>".format(tag): # Added elif for clarity, original logic was implicitly this
             start = False
-        if start:
+        elif start: # Ensure 'start' is true and it's not a closing tag line
             results.append(line)
+            
     if len(results) > 0:
-        results = results[1:]
-        return "\n".join(results)
-    if len(results) == 0:
+        # The original logic `results = results[1:]` might be to skip the opening tag if it was captured.
+        # Let's re-evaluate: if line == "<{}>".format(tag) sets start=True, and then results.append(line)
+        # happens in the same iteration, it would capture the tag itself.
+        # However, the typical loop structure is check condition, then process.
+        # If the line is the opening tag, start becomes true. The *next* lines are appended.
+        # So, results[0] should be the first actual content line, not the tag.
+        # Thus, results = results[1:] might be removing the first content line.
+        # Let's test this assumption. If the goal is to extract content *between* tags,
+        # and the current logic appends lines *after* <tag> and *before* </tag>,
+        # then results[0] is indeed the first line of content.
+        # The original code had `if start: results.append(line)`. If line is `<tag>`, start becomes true.
+        # If line is `content1`, start is true, `content1` is appended.
+        # If line is `</tag>`, start becomes false.
+        # So results should contain `content1`.
+        # The `results = results[1:]` seems to be an error unless the first line appended was the opening tag.
+        # Given the conditions, it seems `results.append(line)` only appends if `start` is already true.
+        # Let's stick to the original logic for now regarding `results[1:]` but note it as a point of review.
+        final_result_lines = results[1:] if results and results[0] == "<{}>".format(tag) else results
+        return "\n".join(final_result_lines)
+
+    # Fallback regex logic if line-by-line parsing yields no results
+    # This part implies the line-by-line logic might not always capture everything,
+    # especially if the content isn't newline-separated as expected or if tags span multiple lines in a way not handled.
+    if not results: # If primary parsing yielded nothing
         pattern = r"<{0}>(.*?)</{0}>".format(re.escape(tag))
-        results = re.findall(pattern, content, re.DOTALL)
-        match_res = []
-        for result in results:
-            match_res.append(result)
-        match_res = "\n".join(match_res)
-        return match_res
+        # re.DOTALL allows . to match newlines, crucial for multi-line content within tags
+        regex_results = re.findall(pattern, content, re.DOTALL)
+        if regex_results:
+            # findall returns a list of strings, where each string is the content of a match.
+            # If multiple occurrences of the tag pair exist, regex_results will have multiple items.
+            # The original code `match_res = "\n".join(match_res)` implies joining multiple findings.
+            return "\n".join(regex_results) # Join all found occurrences
+
     return ""
         
             

@@ -59,10 +59,33 @@ class Agent(ABC):
             reason, content
         ))
 
+        # Process content if it's a list (e.g., from Anthropic models)
+        content_for_parsing = ""
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item and isinstance(item["text"], str):
+                    content_for_parsing += item["text"]
+                elif isinstance(item, str): # Fallback if item itself is a string in the list
+                    content_for_parsing += item
+                # Optionally, log or handle other structures if needed
+                # else:
+                #    logger.warning(f"Unexpected item structure in content list: {type(item)}")
+            logger.info(f"Processed list content into string for parsing: '{content_for_parsing[:200]}...'")
+        elif isinstance(content, str):
+            content_for_parsing = content
+        else:
+            logger.warning(f"Unexpected content type from LLM: {type(content)}. Attempting to cast to string.")
+            try:
+                content_for_parsing = str(content)
+            except Exception as e:
+                logger.error(f"Failed to cast content to string: {e}. Defaulting to empty string.")
+                content_for_parsing = ""
+
+
         assert isinstance(parse_arg_dict, dict)
         result = {
-            "original": content,
-            "result": content,
+            "original": content, # Keep original raw content
+            "result": content_for_parsing, # Use processed content for general result
             "reason": reason
         }
         
@@ -77,7 +100,8 @@ class Agent(ABC):
         analysis here" and store it under result["thought"].
         """
         for key, value in parse_arg_dict.items():
-            result[key] = parse_hierarchy_tags_result(content, value).strip()
+            # Ensure that parse_hierarchy_tags_result receives a string
+            result[key] = parse_hierarchy_tags_result(content_for_parsing, value).strip()
         return result
                     
         

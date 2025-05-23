@@ -6,7 +6,6 @@ from loguru import logger
 import threading
 import os
 import datetime
-import copy
 from copy import deepcopy
 
 def string_to_md5(string):
@@ -75,7 +74,7 @@ class FileLock:
         self.file.close()
   
 def get_omit_json(data, max_str_len=100, max_list_len=10, to_str=True):
-    data = copy.deepcopy(data)
+    data = deepcopy(data)
     max_str_len = 10000
     def dfs(cur_data):
         if isinstance(cur_data, (list, tuple)):
