@@ -13,6 +13,7 @@ import json
 import argparse
 from loguru import logger
 import traceback
+import os # Ensure os is imported
 from recursive.memory import caches
 from recursive.cache import Cache
 from recursive.utils.get_index import get_report_with_ref
@@ -56,8 +57,10 @@ class GraphRunEngine:
         with open(root_node_file, "wb") as f:
             pickle.dump(self.root_node, f)
         
-        with open(root_node_json_file, "w") as f:
+        root_node_json_file_tmp = root_node_json_file + ".tmp"
+        with open(root_node_json_file_tmp, "w") as f:
             json.dump(self.root_node.to_json(), f, indent=4, ensure_ascii=False)
+        os.rename(root_node_json_file_tmp, root_node_json_file)
             
         self.memory.save(folder)
         
@@ -112,8 +115,10 @@ class GraphRunEngine:
         
         # Update nodes.json after each step if path provided 
         if nodes_json_file:
-            with open(nodes_json_file, "w") as f:
+            tmp_nodes_json_file = nodes_json_file + ".tmp"
+            with open(tmp_nodes_json_file, "w") as f:
                 json.dump(self.root_node.to_json(), f, indent=4, ensure_ascii=False)
+            os.rename(tmp_nodes_json_file, nodes_json_file)
                 
         if not full_step:
             action_name, action_result = need_next_step_node.next_action_step(self.memory, 
