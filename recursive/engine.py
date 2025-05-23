@@ -342,9 +342,36 @@ def story_writing(input_filename,
             result = engine.forward_one_step_untill_done(save_folder=folder, nl=True, nodes_json_file=nodes_json_file)    
         except Exception as e:
             logger.error("Encounter exception: {}\nWhen Process {}".format(traceback.format_exc(), question))
+            # Ensure log_id is removed even if an exception occurs
+            if 'log_id' in locals():
+                logger.remove(log_id)
             continue
             
         item["result"] = result
+        
+        # Enhanced logging for nodes.json after engine run
+        if nodes_json_file and os.path.exists(nodes_json_file):
+            try:
+                with open(nodes_json_file, 'r', encoding='utf-8') as njf:
+                    nodes_content = njf.read()
+                logger.info(f"Content of nodes.json after engine run for item {item.get('id', 'N/A')} (first 500 chars): {nodes_content[:500]}")
+                # Try to parse it to confirm it's valid JSON and get subtask count
+                nodes_data = json.loads(nodes_content)
+                num_sub_tasks = 0
+                if nodes_data and isinstance(nodes_data, dict):
+                    inner_graph = nodes_data.get("inner_graph", {})
+                    if isinstance(inner_graph, dict):
+                        topological_queue = inner_graph.get("topological_task_queue", [])
+                        num_sub_tasks = len(topological_queue)
+                logger.info(f"nodes.json for item {item.get('id', 'N/A')} parsed successfully. Number of sub-tasks at root: {num_sub_tasks}")
+
+            except json.JSONDecodeError as jde:
+                logger.error(f"Failed to parse nodes.json for item {item.get('id', 'N/A')} after engine run: {str(jde)}. Content (first 500 chars): {nodes_content[:500] if 'nodes_content' in locals() else 'Error reading content'}")
+            except Exception as e:
+                logger.error(f"Error reading or processing nodes.json for item {item.get('id', 'N/A')} after engine run: {str(e)}")
+        else:
+            logger.warning(f"nodes.json file not found at {nodes_json_file} for item {item.get('id', 'N/A')} after engine run.")
+
         output_f.write(json.dumps(item, ensure_ascii=False) + "\n")
         output_f.flush()
         
