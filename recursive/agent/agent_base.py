@@ -43,7 +43,13 @@ class Agent(ABC):
         if history_message is not None:
             message.append(history_message)
         message.append({"role": "user", "content": prompt})
-        logger.info(message[-1]["content"])
+
+        # Log summaries instead of the full last message content at INFO level
+        if system_message and system_message.strip():
+            logger.info(f"System Message (first 200 chars): {system_message[:200]}...")
+        logger.info(f"User Prompt (first 300 chars): {prompt[:300]}...")
+        # Optionally, log the full messages at DEBUG level
+        logger.debug(f"Full messages object sent to LLM: {json.dumps(message, indent=2, ensure_ascii=False)}")
         
         model = other_inner_args.pop("model", "gpt-4o")
         

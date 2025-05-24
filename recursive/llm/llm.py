@@ -146,7 +146,14 @@ class OpenAIApiProxy():
             use_official = "anthropic"
         
         if self.verbose:
-            logger.info("Messages: {}".format(json.dumps(messages, ensure_ascii=False, indent=4)))
+            # Log summary at INFO level
+            logger.info(f"Calling LLM model: {model}")
+            for i, msg in enumerate(messages):
+                role = msg.get('role', 'unknown')
+                content_summary = str(msg.get('content', ''))[:200]
+                logger.info(f"Message {i} Role: {role}, Content (first 200 chars): {content_summary}...")
+            # Log full messages at DEBUG level
+            logger.debug("Full messages object sent to LLM: {}".format(json.dumps(messages, ensure_ascii=False, indent=2)))
         
         if temperature is not None:
             params_gpt["temperature"] = temperature
