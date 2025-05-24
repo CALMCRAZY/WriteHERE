@@ -292,13 +292,14 @@ def story_writing(input_filename,
     
     items = data[start:end]
     
-    import pathlib
-    root_folder = "{}/{}".format(str(pathlib.Path(output_filename).parent.parent),
-                                 "records") 
-    caches["search"] = Cache("{}/../cache/{}-{}-search".format(root_folder, start, end))
-    caches["llm"] = Cache("{}/../cache/{}-{}-llm".format(root_folder, start, end))
+    import pathlib # Ensure pathlib is imported
+    # Cache path logic: This uses output_filename.parent.parent (e.g. backend/results/)
+    # and constructs cache/{start}-{end}-search. This existing logic is preserved.
+    cache_base_dir = pathlib.Path(output_filename).parent.parent 
+    caches["search"] = Cache(str(cache_base_dir / f"cache/{start}-{end}-search"))
+    caches["llm"] = Cache(str(cache_base_dir / f"cache/{start}-{end}-llm"))
     
-    import os
+    # import os # os is already imported globally
     if os.path.exists(output_filename):
         done_ques = [item["ori"]["inputs"]  for item in read_jsonl(output_filename)]
         filtered_items = [item for item in items if item["ori"]["inputs"] not in done_ques]
@@ -311,35 +312,46 @@ def story_writing(input_filename,
 
     for item in items:
         question = item["ori"]["inputs"]
+        # The 'qstr = item["id"]' and old 'folder = ...' logic for log/artifact paths are removed.
+        # 'records_dir_str' is now used for these paths.
+
+        # Corrected path logic for logs and artifacts (engine.log, nodes.pkl, article.txt)
+        # output_filename is like backend/results/{task_id}/result.jsonl
+        task_specific_results_dir = pathlib.Path(output_filename).parent # This is backend/results/{task_id}/
+        records_dir = task_specific_results_dir / 'records'      # This is backend/results/{task_id}/records/
+        records_dir_str = str(records_dir)
+        os.makedirs(records_dir_str, exist_ok=True) # Ensure the directory exists
+
         root_node = RegularDummyNode(
             config = config,
-            nid = "",
+            nid = "", 
             node_graph_info = {
                 "outer_node": None,
-                "root_node": None,
+                "root_node": None, 
                 "parent_nodes": [],
                 "layer": 0
             },
             task_info = {
                 "goal": question,
-                "task_type": "write",
-                "length": "determine based on the task requirements:",
+                "task_type": "write", 
+                "length": "determine based on the task requirements:", 
                 "dependency": []
             },
             node_type = NodeType.PLAN_NODE
         )
         root_node.node_graph_info["root_node"] = root_node
         engine = GraphRunEngine(root_node, "xml", config)
-        import os
-        # qstr = question if len(question) < 40 else question[:40]
-        qstr = item["id"]
-        folder = "{}/{}".format(root_folder, qstr)
-        os.makedirs(folder, exist_ok=True)
+        
+        # Logging setup using the corrected records_dir_str
         custom_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
-        log_id = logger.add("{}/engine.log".format(folder), format=custom_format)
+        log_id = logger.add(f"{records_dir_str}/engine.log", format=custom_format) # Corrected log path
+        
         try:
-            # result = engine.forward_one_step_untill_done(save_folder=folder, to_run_check_str = check_str) 
-            result = engine.forward_one_step_untill_done(save_folder=folder, nl=True, nodes_json_file=nodes_json_file)    
+            result = engine.forward_one_step_untill_done(
+                save_folder=records_dir_str, # Corrected save_folder for engine.save()
+                nl=True, 
+                nodes_json_file=nodes_json_file 
+            )    
         except Exception as e:
             logger.error("Encounter exception: {}\nWhen Process {}".format(traceback.format_exc(), question))
             # Ensure log_id is removed even if an exception occurs
@@ -550,13 +562,14 @@ def report_writing(input_filename,
     data = read_jsonl(input_filename)
     items = data[start:end]
     
-    import pathlib
-    root_folder = "{}/{}".format(str(pathlib.Path(output_filename).parent.parent),
-                                 "records") 
-    caches["search"] = Cache("{}/../cache/{}-{}-search".format(root_folder, start, end)) # cache search and llm result
-    caches["llm"] = Cache("{}/../cache/{}-{}-llm".format(root_folder, start, end))
-    
-    import os
+    import pathlib # Ensure pathlib is imported
+    # Cache path logic: This uses output_filename.parent.parent (e.g. backend/results/)
+    # and constructs cache/{start}-{end}-search. This existing logic is preserved.
+    cache_base_dir = pathlib.Path(output_filename).parent.parent 
+    caches["search"] = Cache(str(cache_base_dir / f"cache/{start}-{end}-search"))
+    caches["llm"] = Cache(str(cache_base_dir / f"cache/{start}-{end}-llm"))
+
+    # import os # os is already imported globally
     if os.path.exists(output_filename):
         done_ques = [item["prompt"]  for item in read_jsonl(output_filename)]
         filtered_items = [item for item in items if item["prompt"] not in done_ques]
@@ -566,40 +579,54 @@ def report_writing(input_filename,
     output_f = open(output_filename, "a", encoding="utf8")
     for item in items:
         question = item["prompt"]
+        # qstr = item["id"] # This variable is not used for constructing records_dir_str
+
+        # Corrected path logic for logs and artifacts (engine.log, nodes.pkl, article.txt, report.md)
+        # output_filename is like backend/results/{task_id}/result.jsonl
+        task_specific_results_dir = pathlib.Path(output_filename).parent # This is backend/results/{task_id}/
+        records_dir = task_specific_results_dir / 'records'      # This is backend/results/{task_id}/records/
+        records_dir_str = str(records_dir)
+        os.makedirs(records_dir_str, exist_ok=True) # Ensure the directory exists
+        
         root_node = RegularDummyNode(
             config = config,
             nid = "",
             node_graph_info = {
                 "outer_node": None,
-                "root_node": None,
+                "root_node": None, 
                 "parent_nodes": [],
                 "layer": 0
             },
             task_info = {
                 "goal": question,
-                "task_type": "write",
-                "length": "You should determine itself, according to the question",
+                "task_type": "write", 
+                "length": "You should determine itself, according to the question", 
                 "dependency": []
             },
             node_type = NodeType.PLAN_NODE
         )
         root_node.node_graph_info["root_node"] = root_node
         engine = GraphRunEngine(root_node, "xml", config)
-        import os
-        qstr = item["id"]
-        folder = "{}/{}".format(root_folder, qstr)
-        os.makedirs(folder, exist_ok=True)
-        rf = open("{}/report.md".format(folder), "w")
         
+        # Corrected path for report.md
+        rf = open(f"{records_dir_str}/report.md", "w")
+        
+        # Logging setup using the corrected records_dir_str
         custom_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
-        log_id = logger.add("{}/engine.log".format(folder), format=custom_format)
+        log_id = logger.add(f"{records_dir_str}/engine.log", format=custom_format) # Corrected log path
+        
         try:
-            result = engine.forward_one_step_untill_done(save_folder=folder, nl=True, nodes_json_file=nodes_json_file)    
+            result = engine.forward_one_step_untill_done(
+                save_folder=records_dir_str, # Corrected save_folder for engine.save()
+                nl=True, 
+                nodes_json_file=nodes_json_file 
+            )    
         except Exception as e:
             logger.error("Encounter exception: {}\nWhen Process {}".format(traceback.format_exc(), question))
+            rf.close() 
+            logger.remove(log_id) 
             continue
             
-        
         result = get_report_with_ref(engine.root_node.to_json(), result)
         item["result"] = result
         output_f.write(json.dumps(item, ensure_ascii=False) + "\n")
